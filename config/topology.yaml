@@ -22,7 +22,7 @@ ap:
     host: 192.168.1.1
     port: 23
   serial:
-    enable: false
+    enable: true
     mode: local
     port: /dev/ttyUSB0
     baudrate: 115200
