@@ -3,6 +3,7 @@
 import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 
 from src.connections.ssh import SSHConnection
 from src.transport.base import FrameTransport
@@ -155,7 +156,7 @@ class StaInjector:
             results.append(result)
         return results
 
-    async def start_capture(self, pcap_path: str,
+    async def start_capture(self, pcap_path: Path,
                             bpf_filter: str = "") -> None:
         await self.transport.start_capture(pcap_path, bpf_filter)
 
