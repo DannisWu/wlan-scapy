@@ -15,49 +15,56 @@ class ConnectionPool:
         self._serial: SerialConnection | None = None
 
     async def connect_all(self) -> None:
-        # SSH to Wired PC
-        wired = SSHConnection(
-            self.config.wired_pc.host,
-            self.config.wired_pc.ssh_port,
-            self.config.wired_pc.user,
-            self.config.wired_pc.password,
-        )
-        await wired.connect()
-        self._ssh["wired_pc"] = wired
+        if self._ssh:
+            raise RuntimeError("Connections already established")
 
-        # SSH to WLAN STA
-        sta = SSHConnection(
-            self.config.sta.host,
-            self.config.sta.ssh_port,
-            self.config.sta.user,
-            self.config.sta.password,
-        )
-        await sta.connect()
-        self._ssh["sta"] = sta
+        try:
+            # SSH to Wired PC
+            wired = SSHConnection(
+                self.config.wired_pc.host,
+                self.config.wired_pc.ssh_port,
+                self.config.wired_pc.user,
+                self.config.wired_pc.password,
+            )
+            await wired.connect()
+            self._ssh["wired_pc"] = wired
 
-        # Telnet to DUT AP
-        self._telnet = TelnetConnection(
-            self.config.ap.telnet.host,
-            self.config.ap.telnet.port,
-        )
-        await self._telnet.connect()
+            # SSH to WLAN STA
+            sta = SSHConnection(
+                self.config.sta.host,
+                self.config.sta.ssh_port,
+                self.config.sta.user,
+                self.config.sta.password,
+            )
+            await sta.connect()
+            self._ssh["sta"] = sta
 
-        # Serial to DUT AP (optional)
-        if self.config.ap.serial.enable:
-            self._serial = SerialConnection()
-            mode = SerialMode.LOCAL if self.config.ap.serial.mode == "local" else SerialMode.COMHUB
-            if mode == SerialMode.LOCAL:
-                await self._serial.open(
-                    mode,
-                    port=self.config.ap.serial.port,
-                    baudrate=self.config.ap.serial.baudrate,
-                )
-            else:
-                await self._serial.open(
-                    mode,
-                    host=self.config.ap.serial.host,
-                    port=self.config.ap.serial.com_port,
-                )
+            # Telnet to DUT AP
+            self._telnet = TelnetConnection(
+                self.config.ap.telnet.host,
+                self.config.ap.telnet.port,
+            )
+            await self._telnet.connect()
+
+            # Serial to DUT AP (optional)
+            if self.config.ap.serial.enable:
+                self._serial = SerialConnection()
+                mode = SerialMode.LOCAL if self.config.ap.serial.mode == "local" else SerialMode.COMHUB
+                if mode == SerialMode.LOCAL:
+                    await self._serial.open(
+                        mode,
+                        port=self.config.ap.serial.port,
+                        baudrate=self.config.ap.serial.baudrate,
+                    )
+                else:
+                    await self._serial.open(
+                        mode,
+                        host=self.config.ap.serial.host,
+                        port=self.config.ap.serial.com_port,
+                    )
+        except Exception:
+            await self.disconnect_all()
+            raise
 
     async def disconnect_all(self) -> None:
         for conn in self._ssh.values():
@@ -69,7 +76,7 @@ class ConnectionPool:
 
     @property
     def ssh(self) -> dict[str, SSHConnection]:
-        return self._ssh
+        return dict(self._ssh)
 
     @property
     def telnet(self) -> TelnetConnection:

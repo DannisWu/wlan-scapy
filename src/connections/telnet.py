@@ -1,6 +1,7 @@
 """Telnet connection to DUT AP CLI."""
 
 import asyncio
+import re
 
 import telnetlib3
 
@@ -8,9 +9,11 @@ from src.connections.base import TelnetResult
 
 
 class TelnetConnection:
-    def __init__(self, host: str, port: int = 23):
+    def __init__(self, host: str, port: int = 23,
+                 prompt_suffixes: tuple[str, ...] = ("# ", "> ", "? ", "$ ", ":")):
         self.host = host
         self.port = port
+        self.prompt_suffixes = prompt_suffixes
         self._reader = None
         self._writer = None
 
@@ -33,10 +36,9 @@ class TelnetConnection:
         return TelnetResult(output=output)
 
     async def wait_for(self, pattern: str, timeout: float = 30) -> str:
-        import re
-        deadline = asyncio.get_event_loop().time() + timeout
+        deadline = asyncio.get_running_loop().time() + timeout
         collected = ""
-        while asyncio.get_event_loop().time() < deadline:
+        while asyncio.get_running_loop().time() < deadline:
             try:
                 data = await asyncio.wait_for(
                     self._reader.read(4096), timeout=1.0,
@@ -62,16 +64,16 @@ class TelnetConnection:
 
     async def _read_until_prompt(self, timeout: float) -> str:
         """Read until CLI prompt is detected."""
-        deadline = asyncio.get_event_loop().time() + timeout
+        deadline = asyncio.get_running_loop().time() + timeout
         collected = ""
-        while asyncio.get_event_loop().time() < deadline:
+        while asyncio.get_running_loop().time() < deadline:
             try:
                 data = await asyncio.wait_for(
                     self._reader.read(4096), timeout=1.0,
                 )
                 if data:
                     collected += data
-                    if collected.rstrip().endswith(("# ", "> ", "? ")):
+                    if collected.rstrip().endswith(self.prompt_suffixes):
                         return collected
             except asyncio.TimeoutError:
                 if collected:
