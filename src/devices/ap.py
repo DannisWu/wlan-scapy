@@ -30,6 +30,13 @@ class APController:
         self._serial = serial
         self._parser = CLIParser()
 
+    @staticmethod
+    def _validate_cli_value(value: str, name: str) -> str:
+        """Validate that a value is safe for CLI transmission."""
+        if not value or "\n" in value or "\r" in value:
+            raise ValueError(f"Invalid {name}: contains control characters")
+        return value
+
     # --- Radio config ---
     async def set_radio(self, channel: int, mode: str,
                         bandwidth: int = 20) -> None:
@@ -42,12 +49,14 @@ class APController:
             await self._telnet.send_cmd(cmd)
 
     async def set_ssid(self, ssid: str, index: int = 0) -> None:
+        self._validate_cli_value(ssid, "SSID")
         await self._telnet.send_cmd(f"ssid {ssid} index {index}")
 
     async def set_security(self, auth: str, encryption: str = "aes",
                            psk: str | None = None) -> None:
         await self._telnet.send_cmd(f"security auth {auth} enc {encryption}")
         if psk:
+            self._validate_cli_value(psk, "PSK")
             await self._telnet.send_cmd(f"security psk {psk}")
 
     # --- Status queries ---
@@ -103,12 +112,14 @@ class APController:
 
     # --- Control ---
     async def reboot(self) -> None:
-        await self._telnet.send_cmd_expect("reboot", "confirm")
-        await self._telnet.send_cmd("y")
+        confirmed = await self._telnet.send_cmd_expect("reboot", "confirm")
+        if confirmed:
+            await self._telnet.send_cmd("y")
 
     async def factory_reset(self) -> None:
         await self._telnet.send_cmd("factory-reset")
-        if await self._telnet.send_cmd_expect("", "confirm"):
+        confirmed = await self._telnet.send_cmd_expect("", "confirm")
+        if confirmed:
             await self._telnet.send_cmd("y")
 
     async def clear_logs(self) -> None:
