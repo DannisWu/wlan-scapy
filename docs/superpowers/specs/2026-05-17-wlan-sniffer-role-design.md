@@ -43,19 +43,19 @@ sniffer:   { host: 10.0.0.30, ... }
 
 ### 3.1 配置层 (`src/utils/config.py`)
 
-新增 `SnifferConfig`：
+新增 `SnifferConfig`——host 为空表示该角色未启用：
 
 ```python
 @dataclass
 class SnifferConfig:
-    host: str
+    host: str = ""                  # 空字符串 = 角色未启用
     ssh_port: int = 22
     user: str = "root"
     password: str | None = None
     interface: str = "wlan1mon"
 ```
 
-`TopologyConfig` 新增字段：
+`TopologyConfig` 新增字段，sniffer 可选：
 
 ```python
 @dataclass
@@ -63,35 +63,54 @@ class TopologyConfig:
     test_runner: TestRunnerConfig
     wired_pc: WiredPCConfig
     sta: STAConfig
-    sniffer: SnifferConfig          # 新增
+    sniffer: SnifferConfig = field(default_factory=SnifferConfig)  # 可选
     ap: APConfig
 ```
 
-`_validate_required()` 新增 sniffer 校验：
+`_validate_required()` 调整为仅校验 host 非空的角色：
 
 ```python
-required = {
-    "wired_pc.host": config.wired_pc.host,
-    "sta.host": config.sta.host,
-    "sniffer.host": config.sniffer.host,    # 新增
-    "ap.telnet.host": config.ap.telnet.host,
-}
+def _validate_required(config: TopologyConfig) -> None:
+    checks = [
+        ("wired_pc.host", config.wired_pc.host),
+        ("sta.host", config.sta.host),
+        ("ap.telnet.host", config.ap.telnet.host),
+    ]
+    # sniffer 是可选的——仅当配置了 host 时才校验
+    if config.sniffer.host:
+        checks.append(("sniffer.host", config.sniffer.host))
+    missing = [name for name, val in checks if not val]
+    if missing:
+        raise ValueError(f"Missing required: {', '.join(missing)}")
 ```
+
+### 3.1.1 角色可选规则
+
+所有测试角色遵循相同约定——`host` 为空字符串 `""` 表示该角色未启用：
+
+| 角色 | 必选/可选 | 说明 |
+|------|----------|------|
+| Wired PC | 必选 | 有线流量生成必需的 |
+| WLAN STA | 必选 | 无线注入必需的 |
+| DUT AP | 必选 | 测试目标必需的 |
+| Sniffer | 可选 | 空口独立抓包，未配置时对应 fixture 返回 `None` |
+| AP Serial | 可选 | 已有 `enable: false` 机制 |
 
 ### 3.2 连接池 (`src/connections/pool.py`)
 
-`connect_all()` 新增 sniffer SSH 连接：
+`connect_all()` 新增 sniffer SSH 连接——仅当 host 非空时建立：
 
 ```python
-# SSH to WLAN Sniffer
-sniffer_conn = SSHConnection(
-    self.config.sniffer.host,
-    self.config.sniffer.ssh_port,
-    self.config.sniffer.user,
-    self.config.sniffer.password,
-)
-await sniffer_conn.connect()
-self._ssh["sniffer"] = sniffer_conn
+# SSH to WLAN Sniffer (optional)
+if self.config.sniffer.host:
+    sniffer_conn = SSHConnection(
+        self.config.sniffer.host,
+        self.config.sniffer.ssh_port,
+        self.config.sniffer.user,
+        self.config.sniffer.password,
+    )
+    await sniffer_conn.connect()
+    self._ssh["sniffer"] = sniffer_conn
 ```
 
 ### 3.3 SnifferDevice (`src/devices/sniffer.py`)
@@ -154,11 +173,14 @@ class SnifferDevice:
 
 ### 3.4 Fixture (`tests/conftest.py`)
 
-新增 `sniffer` fixture：
+新增 `sniffer` fixture——未配置时返回 `None`，测试用例可自行判断跳过：
 
 ```python
 @pytest.fixture(scope="function")
 async def sniffer(conn_pool, config):
+    if "sniffer" not in conn_pool.ssh:
+        yield None                           # 角色未配置，返回 None
+        return
     device = SnifferDevice(
         conn_pool.ssh["sniffer"],
         config.sniffer.interface,
@@ -185,6 +207,9 @@ sniffer:
 ```python
 @pytest.mark.scenario("sta_association")
 async def test_sta_auth_assoc_with_sniffer(ap_configured, sta, sniffer, test_log_dir):
+    if sniffer is None:
+        pytest.skip("Sniffer not configured")   # 角色不存在时自动跳过
+
     # Sniffer 在信道 6 开始抓包
     await sniffer.setup(channel=6)
     await sniffer.start_capture(test_log_dir / "air.pcap")
