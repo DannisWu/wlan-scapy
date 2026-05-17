@@ -17,6 +17,13 @@ sta:
     type: radio
     interface: wlp2s0
 
+sniffer:
+  host: ""
+  ssh_port: 22
+  user: root
+  password: ~
+  interface: wlan1mon
+
 ap:
   telnet:
     host: 192.168.1.1

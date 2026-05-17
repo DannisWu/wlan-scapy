@@ -39,6 +39,17 @@ class ConnectionPool:
             await sta.connect()
             self._ssh["sta"] = sta
 
+            # SSH to WLAN Sniffer (optional)
+            if self.config.sniffer.host:
+                sniffer_conn = SSHConnection(
+                    self.config.sniffer.host,
+                    self.config.sniffer.ssh_port,
+                    self.config.sniffer.user,
+                    self.config.sniffer.password,
+                )
+                await sniffer_conn.connect()
+                self._ssh["sniffer"] = sniffer_conn
+
             # Telnet to DUT AP
             self._telnet = TelnetConnection(
                 self.config.ap.telnet.host,

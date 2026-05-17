@@ -58,11 +58,21 @@ class TestRunnerConfig:
 
 
 @dataclass
+class SnifferConfig:
+    host: str = ""
+    ssh_port: int = 22
+    user: str = "root"
+    password: str | None = None
+    interface: str = "wlan1mon"
+
+
+@dataclass
 class TopologyConfig:
     test_runner: TestRunnerConfig
     wired_pc: WiredPCConfig
     sta: STAConfig
     ap: APConfig
+    sniffer: SnifferConfig = field(default_factory=SnifferConfig)
 
 
 def load_config(path: str | Path) -> TopologyConfig:
@@ -76,6 +86,7 @@ def load_config(path: str | Path) -> TopologyConfig:
             **{k: v for k, v in sta_config.items() if k != "transport"},
             transport=STATransportConfig(**sta_config.get("transport", {})),
         ),
+        sniffer=SnifferConfig(**raw.get("sniffer", {})),
         ap=APConfig(
             telnet=APTelnetConfig(**raw.get("ap", {}).get("telnet", {})),
             serial=APSerialConfig(**raw.get("ap", {}).get("serial", {})),
@@ -87,12 +98,14 @@ def load_config(path: str | Path) -> TopologyConfig:
 
 def _validate_required(config: TopologyConfig) -> None:
     """Check that required string fields are non-empty."""
-    required = {
-        "wired_pc.host": config.wired_pc.host,
-        "sta.host": config.sta.host,
-        "ap.telnet.host": config.ap.telnet.host,
-    }
-    missing = [name for name, val in required.items() if not val]
+    checks: list[tuple[str, str]] = [
+        ("wired_pc.host", config.wired_pc.host),
+        ("sta.host", config.sta.host),
+        ("ap.telnet.host", config.ap.telnet.host),
+    ]
+    if config.sniffer.host:
+        checks.append(("sniffer.host", config.sniffer.host))
+    missing = [name for name, val in checks if not val]
     if missing:
         raise ValueError(
             f"Missing required configuration: {', '.join(missing)}"
