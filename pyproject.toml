@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wlan-scapy"
+version = "0.1.0"
+description = "WLAN AP wireless driver test platform"
+requires-python = ">=3.10"
+dependencies = [
+    "scapy>=2.5.0",
+    "paramiko>=3.4.0",
+    "telnetlib3>=2.0.0",
+    "pyserial>=3.5",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-html>=4.1.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov>=5.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "scenario: test scenario category",
+    "wifi_standard: Wi-Fi standard being tested (11n/11ac/11ax)",
+]

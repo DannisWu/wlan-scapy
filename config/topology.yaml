@@ -1,0 +1,32 @@
+test_runner:
+  report_dir: ./reports
+
+wired_pc:
+  host: 192.168.1.10
+  ssh_port: 22
+  user: root
+  password: ~
+  interface: eth1
+
+sta:
+  host: 192.168.1.20
+  ssh_port: 22
+  user: root
+  password: ~
+  transport:
+    type: radio
+    interface: wlp2s0
+
+ap:
+  telnet:
+    host: 192.168.1.1
+    port: 23
+  serial:
+    enable: false
+    mode: local
+    port: /dev/ttyUSB0
+    baudrate: 115200
+    # comhub mode:
+    # mode: comhub
+    # host: comhub.internal
+    # port: 7001
