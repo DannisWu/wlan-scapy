@@ -7,6 +7,9 @@ from typing import Any
 class CLIParser:
     @staticmethod
     def parse_table(text: str, columns: list[str]) -> list[dict[str, str]]:
+        """Parse a whitespace-delimited table.
+        Note: This splits on whitespace. Multi-word column values will be misparsed.
+        """
         rows = [line.split() for line in text.strip().split("\n") if line.strip()]
         results = []
         for row in rows:

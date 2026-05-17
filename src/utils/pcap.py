@@ -3,7 +3,8 @@
 import asyncio
 import os
 from pathlib import Path
-from scapy.all import sniff, wrpcap, rdpcap, AsyncSniffer
+from scapy.all import sniff, rdpcap, AsyncSniffer
+from scapy.utils import PcapWriter
 
 
 class PCAPManager:
@@ -13,23 +14,36 @@ class PCAPManager:
         self.interface = interface
         self.output_dir = output_dir
         self._sniffer: AsyncSniffer | None = None
+        self._writer: PcapWriter | None = None
         self._current_path: Path | None = None
 
     async def start(self, label: str, bpf_filter: str = "") -> str:
+        if self._sniffer is not None:
+            raise RuntimeError("Sniffer is already running")
         self._current_path = self.output_dir / f"{label}_{_timestamp()}.pcap"
-        self._sniffer = AsyncSniffer(
-            iface=self.interface,
-            filter=bpf_filter,
-            prn=lambda pkt: wrpcap(str(self._current_path), pkt, append=True),
-        )
-        self._sniffer.start()
-        await asyncio.sleep(0.5)  # let sniffer start
+        try:
+            self._writer = PcapWriter(str(self._current_path), append=True, sync=True)
+            self._sniffer = AsyncSniffer(
+                iface=self.interface,
+                filter=bpf_filter,
+                prn=self._writer.write,
+            )
+            self._sniffer.start()
+            await asyncio.sleep(0.5)
+        except Exception:
+            self._writer = None
+            self._sniffer = None
+            self._current_path = None
+            raise
         return str(self._current_path)
 
     async def stop(self) -> str:
         if self._sniffer:
             self._sniffer.stop()
             self._sniffer = None
+        if self._writer:
+            self._writer.close()
+            self._writer = None
         return str(self._current_path) if self._current_path else ""
 
     @staticmethod

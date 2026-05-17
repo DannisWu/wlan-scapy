@@ -1,6 +1,8 @@
 """Special packet builders — jumbo, fragmentation, multicast/broadcast."""
 
-from scapy.all import Ether, IP, IPv6, ICMP, Raw, fragment
+import ipaddress
+
+from scapy.all import Ether, IP, IPv6, ICMP, Raw, fragment, fragment6
 
 
 def build_jumbo_packet(src_mac: str = "00:11:22:33:44:01",
@@ -42,15 +44,21 @@ def build_ipv6_fragments(src_mac: str = "00:11:22:33:44:01",
            IPv6(src=src_ip6, dst=dst_ip6) /
            ICMP() /
            Raw(payload))
-    frags = fragment(pkt, fragsize=frag_size)
+    frags = fragment6(pkt, fragSize=frag_size)
     return [bytes(f) for f in frags]
 
 
 def build_multicast_ipv4(src_mac: str = "00:11:22:33:44:01",
                          group: str = "224.0.0.1",
+                         dst_mac: str | None = None,
                          payload: bytes = b"test") -> bytes:
+    if dst_mac is None:
+        group_ip = ipaddress.IPv4Address(group)
+        dst_mac = "01:00:5e:" + ":".join(
+            f"{(b & 0x7f):02x}" for b in group_ip.packed[-3:]
+        )
     return bytes(
-        Ether(src=src_mac, dst="01:00:5e:00:00:01") /
+        Ether(src=src_mac, dst=dst_mac) /
         IP(src="192.168.1.100", dst=group) /
         Raw(payload)
     )
@@ -67,9 +75,17 @@ def build_broadcast_ipv4(src_mac: str = "00:11:22:33:44:01",
 
 def build_multicast_ipv6(src_mac: str = "00:11:22:33:44:01",
                          group: str = "ff02::1",
+                         dst_mac: str | None = None,
                          payload: bytes = b"test") -> bytes:
+    if dst_mac is None:
+        group_ip = ipaddress.IPv6Address(group)
+        last4 = group_ip.packed[-4:]
+        dst_mac = (
+            f"33:33:{last4[0]:02x}:{last4[1]:02x}:"
+            f"{last4[2]:02x}:{last4[3]:02x}"
+        )
     return bytes(
-        Ether(src=src_mac, dst="33:33:00:00:00:01") /
+        Ether(src=src_mac, dst=dst_mac) /
         IPv6(src="fe80::1", dst=group) /
         Raw(payload)
     )

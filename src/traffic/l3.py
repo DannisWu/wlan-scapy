@@ -1,5 +1,7 @@
 """L3 protocol packet builders — ARP, ICMP, DHCP, NDP."""
 
+import ipaddress
+
 from scapy.all import (
     Ether, ARP, IP, ICMP, IPv6, ICMPv6ND_NS, ICMPv6ND_NA,
 )
@@ -55,8 +57,20 @@ def build_dhcp_request(src_mac: str, requested_ip: str,
 
 def build_nd_solicit(src_mac: str, src_ip6: str,
                      target_ip6: str) -> bytes:
+    # Compute solicited-node multicast from target's last 24 bits
+    tgt = ipaddress.IPv6Address(target_ip6)
+    last24 = tgt.packed[-3:]
+    sn_mcast = (
+        f"ff02::1:ff{last24[0]:02x}:"
+        f"{last24[1]:02x}{last24[2]:02x}"
+    )
+    # Multicast MAC takes the last 4 bytes of the solicited-node address;
+    # byte 12 is always 0xff in the solicited-node prefix.
+    sn_mac = (
+        f"33:33:ff:{last24[0]:02x}:{last24[1]:02x}:{last24[2]:02x}"
+    )
     return bytes(
-        Ether(src=src_mac, dst="33:33:ff:00:00:01") /
-        IPv6(src=src_ip6, dst="ff02::1:ff00:0001") /
+        Ether(src=src_mac, dst=sn_mac) /
+        IPv6(src=src_ip6, dst=sn_mcast) /
         ICMPv6ND_NS(tgt=target_ip6)
     )
