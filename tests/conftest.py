@@ -11,6 +11,7 @@ from src.transport.radio import RadioTransport
 from src.devices.ap import APController
 from src.devices.sta import StaInjector
 from src.devices.wired_pc import TrafficGenerator
+from src.devices.sniffer import SnifferDevice
 
 
 @pytest.fixture(scope="session")
@@ -70,3 +71,16 @@ async def wired_pc(conn_pool, config):
         config.wired_pc.interface,
     )
     yield tg
+
+
+@pytest.fixture(scope="function")
+async def sniffer(conn_pool, config):
+    if "sniffer" not in conn_pool.ssh:
+        yield None
+        return
+    device = SnifferDevice(
+        conn_pool.ssh["sniffer"],
+        config.sniffer.interface,
+    )
+    yield device
+    await device.teardown()
