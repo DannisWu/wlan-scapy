@@ -63,19 +63,23 @@ class SSHConnection:
         if not self._client:
             raise RuntimeError("Not connected")
         sftp = self._client.open_sftp()
-        await asyncio.get_event_loop().run_in_executor(
-            None, lambda: sftp.put(str(local), remote),
-        )
-        sftp.close()
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, lambda: sftp.put(str(local), remote),
+            )
+        finally:
+            sftp.close()
 
     async def pull_file(self, remote: str, local: Path) -> None:
         if not self._client:
             raise RuntimeError("Not connected")
         sftp = self._client.open_sftp()
-        await asyncio.get_event_loop().run_in_executor(
-            None, lambda: sftp.get(remote, str(local)),
-        )
-        sftp.close()
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None, lambda: sftp.get(remote, str(local)),
+            )
+        finally:
+            sftp.close()
 
     @property
     def is_connected(self) -> bool:

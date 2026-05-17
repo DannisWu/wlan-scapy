@@ -67,9 +67,11 @@ class SerialConnection:
                     await asyncio.sleep(0.1)
 
     async def _read_line(self) -> str | None:
+        loop = asyncio.get_event_loop()
         if self._mode == SerialMode.LOCAL:
             if self._reader.in_waiting:
-                return self._reader.readline().decode("utf-8", errors="replace")
+                raw = await loop.run_in_executor(None, self._reader.readline)
+                return raw.decode("utf-8", errors="replace")
         elif self._mode == SerialMode.COMHUB:
             try:
                 return await asyncio.wait_for(self._reader.read(), timeout=0.1)
