@@ -7,20 +7,20 @@
 ```
 Test Runner (pytest)
     │
-    ├── SSH ──► Wired PC (scapy 802.3 流量生成)
-    │
-    ├── SSH ──► WLAN STA (802.11 injection / monitor 抓包)
-    │
-    └── Telnet ──► DUT AP (私有 CLI 配置 / 状态查询)
-                   │
-                   └── Serial ──► 异常日志监听 (oops/panic)
+    ├── SSH ──► Wired PC       (scapy 802.3 流量生成)
+    ├── SSH ──► WLAN STA       (802.11 injection, 多 STA 模拟)
+    ├── SSH ──► WLAN Sniffer   (空口被动抓包, 可选)
+    ├── Telnet ──► DUT AP      (私有 CLI 配置 / 状态查询)
+    └── Serial ──► DUT AP      (异常日志监听, 可选)
 ```
+
+> 所有角色不限制独立设备——可部署在同一台或不同机器上，只需在配置中指定各自的 `host`。
 
 ```
 src/
 ├── connections/     SSH / Telnet / Serial 连接管理
 ├── transport/       FrameTransport 抽象 (Radio / Tunnel 预留)
-├── devices/         APController / StaInjector / TrafficGenerator
+├── devices/         APController / StaInjector / TrafficGenerator / SnifferDevice
 ├── wlan/            802.11 帧构建 + IE 构建 + 异常序列
 ├── traffic/         802.3 报文构建 (ARP/ICMP/DHCP/TCP/UDP/分片)
 ├── cli/             AP CLI 输出解析
@@ -53,6 +53,13 @@ sta:
   transport:
     type: radio
     interface: wlp2s0
+
+sniffer:                       # 可选角色，host 留空则不启用
+  host: ""
+  ssh_port: 22
+  user: root
+  password: ~
+  interface: wlan1mon
 
 ap:
   telnet:
@@ -111,6 +118,7 @@ async def test_my_case(ap_configured, sta, test_log_dir):
 | `ap_configured` | 已配好 802.11ax 的 AP |
 | `sta` | STA 注入控制 (最多 32 个虚拟 STA) |
 | `wired_pc` | 有线侧 scapy 流量生成 |
+| `sniffer` | 独立空口抓包 (未配置时自动跳过) |
 | `test_log_dir` | 测试专用日志/pcap 目录 |
 
 ### 可用 Marker
