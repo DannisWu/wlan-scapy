@@ -12,9 +12,12 @@ def test_ssid_ie():
 
 
 def test_oversized_ie():
-    ie = oversized_ie(1, 256)
+    ie = oversized_ie(1, 256, declared_length=5)
     assert ie.id == 1
     assert len(ie.body) == 256
+    packed = ie.pack()
+    assert packed[1] == 5  # declared length
+    assert len(packed) == 2 + 256  # actual body
 
 
 def test_truncated_ie():

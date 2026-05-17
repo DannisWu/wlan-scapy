@@ -8,9 +8,10 @@ import struct
 class IE:
     id: int
     body: bytes
+    declared_length: int | None = None  # None = use actual len
 
     def pack(self) -> bytes:
-        length = len(self.body)
+        length = self.declared_length if self.declared_length is not None else len(self.body)
         return struct.pack("!BB", self.id, length) + self.body
 
 
@@ -27,27 +28,27 @@ def vht_capabilities_ie(caps: bytes) -> IE:
     return IE(id=191, body=caps)
 
 def he_capabilities_ie(caps: bytes) -> IE:
-    return IE(id=255, body=caps)  # 255 for HE per 802.11ax
+    return IE(id=255, body=b"\x35" + caps)  # 255 for HE per 802.11ax
 
 def rsn_ie(auth_type: int = 2, pairwise: bytes = b"\x00\x0f\xac\x04",
            group: bytes = b"\x00\x0f\xac\x04", psk: bool = True) -> IE:
     body = struct.pack("<H", 1)  # version
-    body += group
-    body += struct.pack("<H", 1) + pairwise
-    body += struct.pack("<H", 1) + struct.pack("<B", auth_type)
+    body += group  # group cipher suite (4 bytes)
+    body += struct.pack("<H", 1) + pairwise  # pairwise count + suite
+    body += struct.pack("<H", 1)  # akm count
     if psk:
-        body += struct.pack("<H", 1) + b"\x00\x0f\xac\x02"
+        body += b"\x00\x0f\xac\x02"  # WPA2-PSK
     else:
-        body += struct.pack("<H", 1) + b"\x00\x0f\xac\x01"
-    body += struct.pack("<H", 0)  # no RSN capabilities
+        body += b"\x00\x0f\xac\x01"  # WPA2-Enterprise
+    body += struct.pack("<H", 0)  # RSN capabilities
     return IE(id=48, body=body)
 
 
 # --- Malformed IE builders ---
 
-def oversized_ie(ie_id: int, size: int) -> IE:
+def oversized_ie(ie_id: int, size: int, declared_length: int = 0) -> IE:
     """IE with body larger than declared length."""
-    return IE(id=ie_id, body=b"\x00" * size)
+    return IE(id=ie_id, body=b"\x00" * size, declared_length=declared_length)
 
 def truncated_ie(ie_id: int, actual_len: int) -> IE:
     """IE truncated to actual_len bytes."""
