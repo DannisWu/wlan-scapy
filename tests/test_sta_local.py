@@ -1,7 +1,7 @@
 """STA 关联测试 — Probe / Auth / Assoc / Reassoc（本地 wlan0mon 适配版）
 
 适配当前环境:
-  目标 AP: BSSID 5a:69:6c:27:2b:d4, SSID ruijie-cls8862a, Open System, Ch36
+  目标 AP: BSSID 06:d0:f8:20:26:0a, SSID wudan-test, Open System, Ch161
   注入接口: wlan0mon (本地)
   抓包: 本机 tcpdump + tshark
 """
@@ -15,8 +15,8 @@ import pytest
 
 
 # ===== 拓扑配置 =====
-TARGET_BSSID = "5a:69:6c:27:2b:d4"
-TARGET_SSID = "ruijie-cls8862a"
+TARGET_BSSID = "06:d0:f8:20:26:0a"
+TARGET_SSID = "wudan-test"
 MON_IFACE = "wlan0mon"
 STA_BASE_MAC = "00:11:22:33:00:00"
 
